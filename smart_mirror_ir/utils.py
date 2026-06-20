@@ -13,20 +13,44 @@ except ImportError:
 console = Console() if RICH_AVAILABLE else None
 
 
-def setup_logging(log_file: str = "/var/log/smart-mirror-ir.log"):
-    """Setup professional logging."""
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+def get_log_file() -> str:
+    """Return a writable log file path. Prefer /var/log if root, else user cache."""
+    if os.geteuid() == 0:
+        log_dir = "/var/log"
+        log_file = os.path.join(log_dir, "smart-mirror-ir.log")
+    else:
+        log_dir = os.path.expanduser("~/.cache/smart-mirror-ir")
+        log_file = os.path.join(log_dir, "smart-mirror-ir.log")
+    
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        # Test write permission
+        with open(log_file, 'a', encoding='utf-8'):
+            pass
+        return log_file
+    except (PermissionError, OSError):
+        # Final fallback: /tmp
+        return "/tmp/smart-mirror-ir.log"
+
+
+def setup_logging(log_file: str = None):
+    """Setup professional logging with fallback for permission issues."""
+    if log_file is None:
+        log_file = get_log_file()
     
     handlers = []
     
-    # File handler
-    file_handler = logging.FileHandler(log_file, encoding='utf-8')
-    file_handler.setLevel(logging.DEBUG)
-    file_formatter = logging.Formatter(
-        '%(asctime)s | %(levelname)-8s | %(name)s | %(message)s'
-    )
-    file_handler.setFormatter(file_formatter)
-    handlers.append(file_handler)
+    # File handler (with fallback)
+    try:
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)
+        file_formatter = logging.Formatter(
+            '%(asctime)s | %(levelname)-8s | %(name)s | %(message)s'
+        )
+        file_handler.setFormatter(file_formatter)
+        handlers.append(file_handler)
+    except Exception:
+        pass  # ignore if still fails
     
     # Console handler with rich if available
     if RICH_AVAILABLE:
