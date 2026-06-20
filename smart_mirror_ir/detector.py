@@ -3,6 +3,16 @@ import platform
 import subprocess
 from typing import Dict, Optional
 
+try:
+    from rich.prompt import Prompt, Confirm
+    from rich.console import Console
+    RICH_AVAILABLE = True
+except ImportError:
+    RICH_AVAILABLE = False
+    Prompt = None
+    Confirm = None
+    Console = None
+
 
 def detect_distro() -> Dict:
     """Detect Linux distribution professionally using /etc/os-release and fallbacks."""
@@ -34,7 +44,7 @@ def detect_distro() -> Dict:
         "linuxmint": "linuxmint",
         "pop": "pop_os",
         "arch": "arch",
-        "manjaro": "arch",  # treat as arch base
+        "manjaro": "arch",
         "fedora": "fedora",
         "centos": "centos",
         "rocky": "rocky",
@@ -67,24 +77,70 @@ def detect_distro() -> Dict:
     return info
 
 
+def _safe_confirm(message: str, default: bool = True) -> bool:
+    """Safe confirm with fallback for encoding issues (WSL, non-UTF8 terminals)."""
+    if RICH_AVAILABLE:
+        try:
+            return Confirm.ask(message, default=default)
+        except (UnicodeDecodeError, Exception):
+            pass  # fallback
+    
+    # Fallback to plain input
+    default_str = "y" if default else "n"
+    while True:
+        try:
+            ans = input(f"{message} [y/n] (default: {default_str}): ").strip().lower()
+            if ans in ["y", "yes", ""]:
+                return True
+            if ans in ["n", "no"]:
+                return False
+        except (EOFError, KeyboardInterrupt):
+            return default
+    return default
+
+
+def _safe_prompt(message: str, default: str = "") -> str:
+    """Safe prompt with fallback."""
+    if RICH_AVAILABLE:
+        try:
+            return Prompt.ask(message, default=default)
+        except (UnicodeDecodeError, Exception):
+            pass
+    
+    try:
+        ans = input(f"{message} (default: {default}): ").strip()
+        return ans if ans else default
+    except (EOFError, KeyboardInterrupt):
+        return default
+
+
 def confirm_or_edit_distro(info: Dict) -> Dict:
     """Interactive confirmation and editing of detected distro."""
-    from rich.prompt import Prompt, Confirm
-    from rich.console import Console
+    console = Console() if RICH_AVAILABLE else None
     
-    console = Console()
+    if console:
+        console.print("\n[bold cyan]System Detection Results:[/bold cyan]")
+        console.print(f"  Distro ID : [green]{info.get('id', 'unknown')}[/green]")
+        console.print(f"  Detected  : [green]{info.get('distro', 'unknown')}[/green] {info.get('pretty', '')}")
+        console.print(f"  Codename  : [green]{info.get('codename', 'unknown')}[/green]")
+        console.print(f"  Version   : [green]{info.get('version', 'unknown')}[/green]")
+        console.print(f"  Package Manager: [green]{info.get('package_manager', 'unknown')}[/green]")
+    else:
+        print("\nSystem Detection Results:")
+        print(f"  Distro ID : {info.get('id', 'unknown')}")
+        print(f"  Detected  : {info.get('distro', 'unknown')} {info.get('pretty', '')}")
+        print(f"  Codename  : {info.get('codename', 'unknown')}")
+        print(f"  Version   : {info.get('version', 'unknown')}")
+        print(f"  Package Manager: {info.get('package_manager', 'unknown')}")
     
-    console.print("\n[bold cyan]System Detection Results:[/bold cyan]")
-    console.print(f"  Distro ID : [green]{info.get('id', 'unknown')}[/green]")
-    console.print(f"  Detected  : [green]{info.get('distro', 'unknown')}[/green] {info.get('pretty', '')}")
-    console.print(f"  Codename  : [green]{info.get('codename', 'unknown')}[/green]")
-    console.print(f"  Version   : [green]{info.get('version', 'unknown')}[/green]")
-    console.print(f"  Package Manager: [green]{info.get('package_manager', 'unknown')}[/green]")
-    
-    if not Confirm.ask("\nIs this correct?", default=True):
-        console.print("[yellow]Please enter correct values:[/yellow]")
-        info["distro"] = Prompt.ask("Distro (ubuntu/debian/arch/fedora/...)", default=info["distro"]).lower()
-        info["codename"] = Prompt.ask("Codename (jammy/noble/bookworm/...)", default=info["codename"]).lower()
-        info["package_manager"] = Prompt.ask("Package Manager (apt/pacman/dnf)", default=info["package_manager"]).lower()
+    if not _safe_confirm("\nIs this correct?", default=True):
+        if console:
+            console.print("[yellow]Please enter correct values:[/yellow]")
+        else:
+            print("Please enter correct values:")
+        
+        info["distro"] = _safe_prompt("Distro (ubuntu/debian/arch/fedora/...)", default=info["distro"]).lower()
+        info["codename"] = _safe_prompt("Codename (jammy/noble/bookworm/trixie/...)", default=info["codename"]).lower()
+        info["package_manager"] = _safe_prompt("Package Manager (apt/pacman/dnf)", default=info["package_manager"]).lower()
     
     return info
