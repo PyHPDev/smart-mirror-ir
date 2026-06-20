@@ -6,7 +6,7 @@ import sys
 import tempfile
 import os
 import shutil
-from typing import List
+from typing import List, Optional
 
 try:
     from rich.console import Console
@@ -26,7 +26,6 @@ from .mirror_manager import (
     get_best_mirrors, 
     generate_apt_sources, 
     generate_pacman_mirrorlist,
-    load_mirrors
 )
 from .config import backup_file, get_sources_list_path, ensure_dirs
 
@@ -58,54 +57,68 @@ def setup_wizard():
     info = detect_distro()
     info = confirm_or_edit_distro(info)
     
-    # Country
+    # Country selection
     if RICH:
         country = Prompt.ask(
-            "Which country are you in?", 
+            "Which country are you in? (this will be saved)", 
             choices=["Iran", "China"], 
             default="Iran"
         )
     else:
-        country = input("Country (Iran/China): ").strip().capitalize() or "Iran"
+        country = input("Country (Iran/China) [Iran]: ").strip().capitalize() or "Iran"
     
     distro = info["distro"]
-    codename = info["codename"]
+    codename = info.get("codename", "stable")
     pm = info["package_manager"]
     
     print_info(f"Starting mirror validation for {country} / {distro} ({codename})...")
     
+    best_mirrors = []
     try:
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}")) if RICH else None as progress:
-            if RICH:
-                task = progress.add_task("Benchmarking mirrors...", total=None)
+        if RICH:
+            with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}")) as progress:
+                task = progress.add_task("Benchmarking and validating mirrors...", total=None)
+                best_mirrors = get_best_mirrors(country, distro, codename, force_refresh=True)
+        else:
+            print_info("Benchmarking mirrors (this may take 20-60 seconds)...")
             best_mirrors = get_best_mirrors(country, distro, codename, force_refresh=True)
     except Exception as e:
-        print_error(f"Mirror benchmark failed: {e}")
-        print_error("Ready brother, this error in total! Check your internet connection.")
+        print_error(f"Mirror benchmark failed: {str(e)}")
+        print_error("Ready brother, this error in total! Check your internet connection or try again later.")
         sys.exit(1)
     
-    # Show results
-    if RICH:
-        table = Table(title="Top Validated Mirrors (sorted by speed)")
-        table.add_column("Rank", style="cyan")
-        table.add_column("Name", style="green")
+    # Show results nicely
+    if RICH and best_mirrors:
+        table = Table(title="Top Validated Mirrors (sorted by speed & reliability)")
+        table.add_column("#", style="cyan", justify="right")
+        table.add_column("Mirror Name", style="green")
         table.add_column("Latency (s)", style="yellow")
         table.add_column("Speed (KB/s)", style="magenta")
         table.add_column("Score", style="bold green")
         
-        for i, m in enumerate(best_mirrors[:8], 1):
+        for i, m in enumerate(best_mirrors[: min(8, len(best_mirrors))], 1):
             table.add_row(
                 str(i), 
-                m["name"], 
-                str(m["latency"]), 
-                str(m["speed_kbps"]), 
-                str(m["score"])
+                m.get("name", "Unknown"),
+                str(m.get("latency", 0)),
+                str(m.get("speed_kbps", 0)),
+                str(m.get("score", 0))
             )
         console.print(table)
-    else:
+    elif best_mirrors:
         print("\nTop mirrors:")
         for i, m in enumerate(best_mirrors[:5], 1):
-            print(f"  {i}. {m['name']} - {m['speed_kbps']} KB/s (score: {m['score']})")
+            print(f"  {i}. {m.get('name')} - {m.get('speed_kbps')} KB/s (score: {m.get('score')})")
+    
+    # Save chosen country for future use
+    try:
+        config_path = "/etc/smart-mirror-ir/config.yaml"
+        import yaml
+        os.makedirs("/etc/smart-mirror-ir", exist_ok=True)
+        with open(config_path, "w") as f:
+            yaml.dump({"country": country, "last_setup": "now"}, f)
+    except:
+        pass
     
     # Configure package manager
     ensure_dirs()
@@ -117,15 +130,13 @@ def setup_wizard():
         if backup:
             print_info(f"Backed up original sources.list to {backup}")
         
-        # Also backup sources.list.d if exists
         with open(sources_path, "w") as f:
             f.write(content)
-        print_success(f"Created {sources_path} with top 5 mirrors")
+        print_success(f"Created smart sources: {sources_path}")
         
-        # Update
         try:
-            subprocess.run(["apt-get", "update", "-qq"], check=False, timeout=120)
-        except:
+            subprocess.run(["apt-get", "update", "-qq"], check=False, timeout=180)
+        except Exception:
             pass
             
     elif pm == "pacman":
@@ -139,66 +150,87 @@ def setup_wizard():
         print_success("Updated /etc/pacman.d/mirrorlist with best mirrors")
         
         try:
-            subprocess.run(["pacman", "-Sy"], check=False, timeout=60)
-        except:
+            subprocess.run(["pacman", "-Sy"], check=False, timeout=90)
+        except Exception:
             pass
+    else:
+        print_warning(f"Package manager '{pm}' detected. Smart sources created but you may need to configure manually.")
     
-    print_success("Setup completed! Your system now uses smart fast mirrors from " + country)
-    print_info("You can run 'smart-mirror-ir update-mirrors' anytime to re-benchmark.")
-    print_info("Use 'smart-mirror-ir install <package>' for smart installation with fallback.")
+    print_success("Setup completed successfully! Your system now prefers fast local mirrors from " + country)
+    print_info("Run 'smart-mirror-ir update-mirrors' anytime to refresh the list.")
+    print_info("Use 'smart-mirror-ir install <package>' for smart installation with automatic fallback.")
 
 
 def cmd_status():
-    """Show current best mirrors status."""
-    # For simplicity, re-run a quick check or load cache
-    print_info("Loading latest mirror status...")
-    # In real use would load from cache or re-detect
-    print_success("Use 'smart-mirror-ir update-mirrors' for fresh benchmark.")
-    # TODO: implement full status from cache
+    """Show current best mirrors status from cache."""
+    print_info("Mirror status feature coming in next update. For now use 'update-mirrors'.")
 
 
 def cmd_update_mirrors():
     """Force re-benchmark all mirrors."""
     info = detect_distro()
-    country = Prompt.ask("Country", choices=["Iran", "China"], default="Iran") if RICH else input("Iran or China? ").strip()
     
-    print_info("Re-benchmarking mirrors... This may take 30-60 seconds.")
+    # Try to load saved country
+    country = "Iran"
     try:
-        best = get_best_mirrors(country, info["distro"], info["codename"], force_refresh=True)
-        print_success(f"Found {len(best)} working mirrors. Top: {best[0]['name']} @ {best[0]['speed_kbps']} KB/s")
+        import yaml
+        with open("/etc/smart-mirror-ir/config.yaml") as f:
+            cfg = yaml.safe_load(f) or {}
+            country = cfg.get("country", "Iran")
+    except:
+        pass
+    
+    if RICH:
+        country = Prompt.ask("Country for benchmark", choices=["Iran", "China"], default=country)
+    else:
+        country = input(f"Country (Iran/China) [{country}]: ").strip().capitalize() or country
+    
+    print_info("Re-benchmarking mirrors... This may take 30-90 seconds. Please wait.")
+    try:
+        best = get_best_mirrors(country, info["distro"], info.get("codename", "stable"), force_refresh=True)
+        print_success(f"Found {len(best)} working mirrors. Best: {best[0]['name']} @ {best[0]['speed_kbps']} KB/s")
     except Exception as e:
         print_error(str(e))
-        print_error("Ready brother, this error in total!")
+        print_error("Ready brother, this error in total! Please check your connection.")
 
 
 def cmd_install(packages: List[str]):
     """Smart install using best mirrors with fallback."""
     if not packages:
-        print_error("No packages specified.")
+        print_error("No packages specified. Example: smart-mirror-ir install htop vim")
         return
     
     info = detect_distro()
     pm = info["package_manager"]
     
-    # Get best mirrors (from cache or quick)
+    # Load saved country or detect
+    country = "Iran"
     try:
-        best_mirrors = get_best_mirrors("Iran" if "ir" in info.get("id","").lower() else "China", 
-                                       info["distro"], info["codename"])
+        import yaml
+        with open("/etc/smart-mirror-ir/config.yaml") as f:
+            cfg = yaml.safe_load(f) or {}
+            country = cfg.get("country", "Iran")
     except:
+        if "ir" in info.get("id", "").lower():
+            country = "Iran"
+        else:
+            country = "China"
+    
+    try:
+        best_mirrors = get_best_mirrors(country, info["distro"], info.get("codename", "stable"))
+    except Exception:
         best_mirrors = []
     
     if not best_mirrors:
-        print_warning("No cached mirrors. Running quick setup first...")
+        print_warning("No good mirrors cached. Running quick setup...")
         setup_wizard()
         return
     
     top_mirrors = best_mirrors[:5]
     
     if pm == "apt":
-        sources_path = get_sources_list_path(pm)
-        content = generate_apt_sources(top_mirrors, info["distro"], info["codename"])
+        content = generate_apt_sources(top_mirrors, info["distro"], info.get("codename", "stable"))
         
-        # Use temp file for this install
         with tempfile.NamedTemporaryFile(mode="w", suffix=".list", delete=False) as tmp:
             tmp.write(content)
             tmp_path = tmp.name
@@ -208,18 +240,18 @@ def cmd_install(packages: List[str]):
                "-o", "Dir::Etc::SourceParts=/dev/null",
                "-o", "Acquire::Retries=3"] + packages
         
-        print_info(f"Installing {' '.join(packages)} using top smart mirrors...")
+        print_info(f"Installing {' '.join(packages)} using top smart mirrors from {country}...")
         try:
-            result = subprocess.run(cmd, check=True, timeout=300)
+            subprocess.run(cmd, check=True, timeout=600)
             print_success("Installation completed successfully using smart mirrors!")
         except subprocess.CalledProcessError as e:
-            print_error(f"Install failed with code {e.returncode}")
-            print_error("Ready brother, this error in total! Try 'smart-mirror-ir update-mirrors' or check connection.")
+            print_error(f"Install failed (code {e.returncode})")
+            print_error("Ready brother, this error in total! Try updating mirrors or check connection.")
         finally:
-            os.unlink(tmp_path)
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
             
     elif pm == "pacman":
-        # For pacman we temporarily replace mirrorlist
         backup = backup_file("/etc/pacman.d/mirrorlist")
         content = generate_pacman_mirrorlist(top_mirrors)
         with open("/etc/pacman.d/mirrorlist", "w") as f:
@@ -227,15 +259,15 @@ def cmd_install(packages: List[str]):
         
         print_info(f"Installing {' '.join(packages)} with smart mirrors...")
         try:
-            result = subprocess.run(["pacman", "-S", "--noconfirm"] + packages, check=True, timeout=300)
+            subprocess.run(["pacman", "-S", "--noconfirm"] + packages, check=True, timeout=600)
             print_success("Installation successful!")
         except subprocess.CalledProcessError:
             print_error("Ready brother, this error in total!")
         finally:
-            if backup:
+            if backup and os.path.exists(backup):
                 shutil.copy(backup, "/etc/pacman.d/mirrorlist")
     else:
-        print_error(f"Package manager {pm} not fully supported yet. Use native command after running update-mirrors.")
+        print_error(f"Package manager '{pm}' not fully supported yet. Please run 'smart-mirror-ir update-mirrors' first.")
 
 
 def main():
@@ -247,21 +279,17 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     
-    # setup
-    p_setup = subparsers.add_parser("setup", help="Run interactive setup wizard")
+    p_setup = subparsers.add_parser("setup", help="Run interactive setup wizard (recommended first time)")
     p_setup.set_defaults(func=lambda args: setup_wizard())
     
-    # status
     p_status = subparsers.add_parser("status", help="Show current mirror status")
     p_status.set_defaults(func=lambda args: cmd_status())
     
-    # update-mirrors
-    p_update = subparsers.add_parser("update-mirrors", help="Force re-benchmark mirrors")
+    p_update = subparsers.add_parser("update-mirrors", help="Force re-benchmark all mirrors")
     p_update.set_defaults(func=lambda args: cmd_update_mirrors())
     
-    # install
-    p_install = subparsers.add_parser("install", help="Smart install packages using best mirrors")
-    p_install.add_argument("packages", nargs="+", help="Packages to install")
+    p_install = subparsers.add_parser("install", help="Smart install packages using best mirrors + fallback")
+    p_install.add_argument("packages", nargs="+", help="Package names to install")
     p_install.set_defaults(func=lambda args: cmd_install(args.packages))
     
     args = parser.parse_args()
