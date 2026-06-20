@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-mirror-ir"
+version = "1.0.0"
+description = "Smart Mirror IR - Intelligent mirror manager for Iran, China and restricted networks"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "PyHPDev", email = "contact@example.com"}
+]
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.31.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0",
+    "colorama>=0.4.6"
+]
+
+[project.scripts]
+smart-mirror-ir = "smart_mirror_ir.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+"smart_mirror_ir" = ["data/*.json"]
