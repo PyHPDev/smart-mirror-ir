@@ -1,55 +1,49 @@
 [
   {
+    "name": "MobinHost",
+    "base_url": "http://mirror.mobinhost.com",
+    "https_available": false,
+    "priority": 95,
+    "debian_path": "/debian/",
+    "ubuntu_path": "/ubuntu/",
+    "arch_path": "/archlinux/",
+    "notes": "Excellent Tehran DC, actively synced for Debian, Ubuntu, Arch. Highly recommended."
+  },
+  {
+    "name": "IranServer",
+    "base_url": "https://mirror.iranserver.com",
+    "https_available": true,
+    "priority": 92,
+    "debian_path": "/debian/",
+    "ubuntu_path": "/ubuntu/",
+    "notes": "Good commercial mirror with full Debian support (confirmed /debian/ structure)."
+  },
+  {
     "name": "ArvanCloud",
     "base_url": "http://mirror.arvancloud.ir",
     "https_available": true,
-    "priority": 95,
-    "notes": "High speed ArvanCloud CDN - excellent for Ubuntu, Debian, Arch"
-  },
-  {
-    "name": "MobinHost",
-    "base_url": "http://mirror.mobinhost.com",
-    "https_available": true,
-    "priority": 92,
-    "notes": "Tehran DC with 100GE - great all-rounder"
-  },
-  {
-    "name": "IUT (Isfahan University)",
-    "base_url": "http://repo.iut.ac.ir",
-    "https_available": false,
-    "priority": 88,
-    "arch_path": "/repo/archlinux/",
-    "ubuntu_path": "/repo/ubuntu/",
-    "debian_path": "/repo/debian/",
-    "notes": "University mirror - very reliable"
+    "priority": 90,
+    "debian_path": "/debian/",
+    "ubuntu_path": "/ubuntu/",
+    "arch_path": "/archlinux/",
+    "notes": "High-speed CDN, supports Debian, Ubuntu, Arch and more."
   },
   {
     "name": "Shatel",
     "base_url": "https://mirror.shatel.ir",
     "https_available": true,
     "priority": 85,
-    "notes": "Good for Ubuntu/Debian/Kali"
+    "debian_path": "/debian/",
+    "ubuntu_path": "/ubuntu/",
+    "notes": "Popular Iranian ISP mirror. Good for Debian and Ubuntu."
   },
   {
-    "name": "IranServer",
-    "base_url": "https://mirror.iranserver.com",
-    "https_available": true,
-    "priority": 80,
-    "notes": "Commercial high-speed mirror"
-  },
-  {
-    "name": "AminIDC",
-    "base_url": "http://mirror.aminidc.com",
+    "name": "IUT (Isfahan University)",
+    "base_url": "http://repo.iut.ac.ir",
     "https_available": false,
-    "priority": 75,
-    "notes": "Another popular Iranian mirror"
-  },
-  {
-    "name": "Rasa Negar",
-    "base_url": "http://mirror.rasanegar.com",
-    "https_available": true,
-    "priority": 70,
-    "arch_path": "/archlinux/",
-    "notes": "Arch focused mirror"
+    "priority": 80,
+    "debian_path": "/repo/debian/",
+    "arch_path": "/repo/archlinux/",
+    "notes": "University mirror. Paths may vary (uses /repo/ prefix for some distros). Will be validated automatically."
   }
 ]
