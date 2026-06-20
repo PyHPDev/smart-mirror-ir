@@ -44,7 +44,7 @@ logger = get_logger()
 VERSION = "1.1.0"
 
 
-def setup_wizard():
+def setup_wizard(args=None):
     """Interactive first-time setup wizard."""
     if RICH and console:
         console.print(Panel.fit(
@@ -95,7 +95,6 @@ def setup_wizard():
             table.add_row(str(i), m["name"], str(m["latency"]), str(m["speed_kbps"]), str(m["score"]))
         console.print(table)
     
-    # Configure
     from .config import ensure_dirs as config_ensure_dirs
     config_ensure_dirs()
     sources_path = get_sources_list_path(pm)
@@ -115,7 +114,6 @@ def setup_wizard():
         print_success("Updated pacman mirrorlist")
         subprocess.run(["pacman", "-Sy"], check=False, timeout=60)
     
-    # Save config
     cfg = load_config()
     cfg["country"] = country
     cfg["last_setup_distro"] = distro
@@ -126,7 +124,7 @@ def setup_wizard():
     print_info("Run 'smart-mirror-ir update-mirrors' to refresh.")
 
 
-def cmd_status():
+def cmd_status(args=None):
     """Show current smart mirror status from cache."""
     from .config import get_cache_path
     import json
@@ -157,7 +155,7 @@ def cmd_status():
         print_error(f"Failed to read status: {e}")
 
 
-def cmd_update_mirrors():
+def cmd_update_mirrors(args=None):
     """Force re-benchmark."""
     info = detect_distro()
     cfg = load_config()
@@ -171,19 +169,22 @@ def cmd_update_mirrors():
         print_error(str(e))
 
 
-def cmd_install(packages: List[str]):
+def cmd_install(args):
     """Smart install using best mirrors (temporary override)."""
-    # ... (same as before, kept for advanced users)
-    print_info("Using smart temporary mirror config for install...")
-    # (implementation remains similar to previous version for safety)
+    packages = args.packages if hasattr(args, 'packages') else []
+    if not packages:
+        print_error("No packages specified.")
+        return
+    
     info = detect_distro()
     pm = info["package_manager"]
+    
     try:
         best_mirrors = get_best_mirrors(load_config().get("country", "Iran"), info["distro"], info["codename"])
     except:
         best_mirrors = []
     if not best_mirrors:
-        print_warning("No mirrors cached. Running setup first...")
+        print_warning("No cached mirrors. Running setup first...")
         setup_wizard()
         return
     top = best_mirrors[:5]
@@ -199,12 +200,15 @@ def cmd_install(packages: List[str]):
         except subprocess.CalledProcessError:
             print_error("Install failed. Try normal 'sudo apt install' or update-mirrors.")
         finally:
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
     else:
         print_info("For pacman, normal 'sudo pacman -S' should already use smart mirrors after setup.")
 
 
-def cmd_restore():
+def cmd_restore(args=None):
     """Restore original package manager configuration."""
     pm = detect_distro()["package_manager"]
     if pm == "apt":
@@ -215,7 +219,6 @@ def cmd_restore():
         else:
             print_warning("No smart sources file found.")
     elif pm == "pacman":
-        # In real implementation we would restore from backup
         print_info("For pacman, manually restore /etc/pacman.d/mirrorlist from backup if needed.")
     print_success("Restore completed.")
 
@@ -226,6 +229,7 @@ def get_sources_list_path(pm: str) -> str:
     elif pm == "pacman":
         return "/etc/pacman.d/mirrorlist"
     return ""
+
 
 def backup_file(path: str):
     from .config import BACKUP_DIR
@@ -259,7 +263,7 @@ def main():
     
     p_install = subparsers.add_parser("install", help="Advanced install with temporary smart mirrors")
     p_install.add_argument("packages", nargs="+")
-    p_install.set_defaults(func=lambda args: cmd_install(args.packages))
+    p_install.set_defaults(func=cmd_install)
     
     p_restore = subparsers.add_parser("restore", help="Restore original package manager config")
     p_restore.set_defaults(func=cmd_restore)
