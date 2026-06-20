@@ -107,12 +107,13 @@ def setup_wizard(args=None):
         
         # Add apt speed optimizations
         apt_conf = "/etc/apt/apt.conf.d/99smart-mirror-ir"
-        with open(apt_conf, "w") as f:
-            f.write('Acquire::http::Pipeline-Depth "5";
+        apt_config_content = '''Acquire::http::Pipeline-Depth "5";
 Acquire::http::No-Cache "true";
 Acquire::BrokenProxy "true";
 Acquire::Retries "3";
-')
+'''
+        with open(apt_conf, "w") as f:
+            f.write(apt_config_content)
         print_success("Added apt speed optimizations")
         
         subprocess.run(["apt-get", "update", "-qq"], check=False, timeout=120)
