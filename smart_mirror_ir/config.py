@@ -9,8 +9,14 @@ try:
 except ImportError:
     yaml = None
 
-CACHE_DIR = "/var/cache/smart-mirror-ir"
-CONFIG_DIR = "/etc/smart-mirror-ir"
+# Use user-writable paths if not root
+if os.geteuid() == 0:
+    CACHE_DIR = "/var/cache/smart-mirror-ir"
+    CONFIG_DIR = "/etc/smart-mirror-ir"
+else:
+    CACHE_DIR = os.path.expanduser("~/.cache/smart-mirror-ir")
+    CONFIG_DIR = os.path.expanduser("~/.config/smart-mirror-ir")
+
 BACKUP_DIR = os.path.join(CONFIG_DIR, "backups")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.yaml")
 
