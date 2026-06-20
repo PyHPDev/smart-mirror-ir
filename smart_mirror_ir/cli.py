@@ -188,6 +188,9 @@ def cmd_update_mirrors(args=None):
     print_info("Re-benchmarking mirrors...")
     try:
         best = get_best_mirrors(country, info["distro"], info["codename"], force_refresh=True)
+        if not best:
+            print_warning("No valid mirrors found. Check your internet or try again later.")
+            return
         if markdown:
             print("# Benchmark Results\n")
             print("| Rank | Name | Latency (s) | Speed (KB/s) | Score |")
