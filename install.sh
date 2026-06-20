@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# Smart Mirror IR - Clean Professional Installer
-# Only installs what is absolutely necessary
+# Smart Mirror IR - Professional Installer
+# Handles sudo correctly for WSL and multi-user systems
 #
 
 set -e
@@ -15,13 +15,24 @@ NC='\033[0m'
 log() { echo -e "${BLUE}[SmartMirrorIR]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1" >&2; }
 success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+
+# Determine the real user (even if run with sudo)
+if [ -n "$SUDO_USER" ]; then
+    REAL_USER="$SUDO_USER"
+    REAL_HOME=$(eval echo ~$SUDO_USER)
+else
+    REAL_USER="$USER"
+    REAL_HOME="$HOME"
+fi
 
 if [ "$EUID" -ne 0 ]; then
-    error "Run with sudo"
+    error "This script needs root privileges for system configuration."
+    error "Please run: sudo bash install.sh"
     exit 1
 fi
 
-log "Smart Mirror IR - Clean Installation"
+log "Smart Mirror IR Professional Installation"
 
 echo ""
 cat << 'BANNER'
@@ -34,32 +45,34 @@ cat << 'BANNER'
 BANNER
 echo ""
 
-# === ONLY minimal packages ===
-log "Installing only required packages (python3 + pipx)..."
-if command -v apt-get &> /dev/null; then
-    apt-get update -qq
-    apt-get install -y python3 python3-pip pipx curl --no-install-recommends 2>/dev/null || true
+log "Installing minimal packages..."
+apt-get update -qq
+apt-get install -y python3 python3-pip pipx curl --no-install-recommends 2>/dev/null || true
+
+# Switch to the real user for pipx installation
+log "Installing Smart Mirror IR for user '$REAL_USER' using pipx..."
+
+if [ -n "$SUDO_USER" ]; then
+    # Run pipx as the real user
+    sudo -u "$SUDO_USER" pipx install . --force 2>/dev/null || \
+    sudo -u "$SUDO_USER" pipx install git+https://github.com/PyHPDev/smart-mirror-ir.git --force
+    
+    sudo -u "$SUDO_USER" pipx ensurepath --quiet 2>/dev/null || true
+else
+    pipx install . --force 2>/dev/null || pipx install git+https://github.com/PyHPDev/smart-mirror-ir.git --force
+    pipx ensurepath --quiet 2>/dev/null || true
 fi
 
-if ! command -v pipx &> /dev/null; then
-    error "pipx not found. Please install it manually."
-    exit 1
-fi
+export PATH="$REAL_HOME/.local/bin:$PATH"
 
-log "Installing Smart Mirror IR with pipx..."
-pipx install . --force 2>/dev/null || pipx install git+https://github.com/PyHPDev/smart-mirror-ir.git --force
-
-pipx ensurepath --quiet 2>/dev/null || true
-export PATH="$HOME/.local/bin:$PATH"
-
-success "Installation completed!"
+success "Installation completed successfully!"
 
 echo ""
-echo -e "${YELLOW}IMPORTANT:${NC} Run this command or restart your terminal:"
+echo -e "${YELLOW}IMPORTANT - Run this command (or restart your terminal):${NC}"
 echo "    source ~/.bashrc"
 echo ""
-echo -e "${GREEN}Then test with:${NC}"
+echo -e "${GREEN}Then test:${NC}"
 echo "    smart-mirror-ir --help"
 echo "    smart-mirror-ir status"
 echo ""
-echo "Normal apt commands will now use smart Iranian mirrors."
+echo "After setup, normal commands like 'sudo apt install htop' will use smart mirrors."
