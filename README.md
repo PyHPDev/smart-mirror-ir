@@ -1,54 +1,24 @@
-# Smart Mirror IR 🇮🇷🇨🇳
+# Smart Mirror IR 🇮🇷 🇨🇳
 
-**Advanced Intelligent Package Mirror Management System for Iran, China, and countries with internet restrictions or slow official mirrors.**
+**Professional, full-stack intelligent package mirror manager for Iran, China and restricted networks.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)
 
-## عنوان فارسی
+## English
 
-**اسمارت میرور ای آر** - سیستم هوشمند مدیریت میرورهای پکیج برای لینوکس
+Smart Mirror IR is a production-grade tool that automatically selects the fastest and most reliable package mirrors for Debian, Ubuntu, and Arch Linux (with support for others) in countries with internet restrictions like Iran and China.
 
-## Features (Advanced & Professional)
+### Key Features
+- **Smart Benchmarking**: Parallel validation + real speed testing of mirrors
+- **Automatic Configuration**: Updates sources.list / mirrorlist with top mirrors
+- **pipx Support**: Clean, isolated installation
+- **Systemd Integration**: Optional automatic daily mirror updates
+- **Safe Operations**: Always creates backups before modifying system files
+- **Multi-language README**: English + Persian + Chinese
 
-- **Smart Mirror Selection**: Automatically validates and benchmarks mirrors for speed and reliability.
-- **Country Support**: Built-in optimized lists for **Iran (IR)** and **China (CN)** with 10+ high-quality mirrors each.
-- **Multi-Distro Support**: Currently strong support for **Ubuntu/Debian (apt)** and **Arch Linux (pacman)**. Easy to extend for Fedora, openSUSE etc.
-- **Professional Validation**:
-  - HTTP status check
-  - Content validation (correct Release/InRelease or core.db signature)
-  - Real speed benchmark (download time + throughput)
-  - Parallel testing with ThreadPoolExecutor for speed
-- **Intelligent Fallback**: Ranks mirrors by performance. Uses top mirrors in package manager config for automatic failover.
-- **Interactive Setup Wizard**: Detects your OS/distro/version, confirms with user, asks country, sets everything up.
-- **CLI Tool**: `smart-mirror-ir` command after install.
-  - `setup` / `reconfigure`
-  - `update-mirrors` (re-benchmark all)
-  - `status` (show current best mirrors with speeds)
-  - `install <pkg>` (smart install using best mirrors - temp config + fallback)
-- **Safe Configuration**: Always backups original sources/mirrorlist before modifying.
-- **Caching**: Mirror status cached for 1 hour to avoid repeated slow tests.
-- **Logging**: Detailed logs in `/var/log/smart-mirror-ir.log`
-- **Systemd Ready**: Optional background service for periodic mirror health checks (future).
-- **No Bugs Policy**: Clean code, proper error handling, type hints where possible, professional structure.
-
-## Why Smart Mirror IR?
-
-In countries like Iran and China, official global mirrors (archive.ubuntu.com, deb.debian.org, etc.) are often slow, blocked, or unreliable due to sanctions, Great Firewall, or routing issues.
-
-This tool solves it by:
-1. Maintaining curated lists of **local fast mirrors**.
-2. Continuously validating which ones are alive and fast **right now**.
-3. Automatically configuring your package manager to use the best ones **with failover**.
-4. Providing a smart `install` command that tries the best mirrors in order.
-
-## Requirements
-
-- Linux (Ubuntu, Debian, Arch, Fedora, etc.)
-- Python 3.8+
-- sudo access for initial setup
-- curl (usually pre-installed)
-
-## Quick Start
+### Quick Start (Recommended)
 
 ```bash
 git clone https://github.com/PyHPDev/smart-mirror-ir.git
@@ -56,99 +26,63 @@ cd smart-mirror-ir
 sudo bash install.sh
 ```
 
-During setup:
-- It will detect your Linux distribution.
-- Ask you to confirm or manually select (Iran / China).
-- Validate and benchmark ~10-15 mirrors for your distro.
-- Backup and configure your package sources/mirrorlist with the top fastest mirrors.
-- Install the `smart-mirror-ir` CLI command.
-
-After setup you can use:
-
+After installation, normal commands work:
 ```bash
+sudo apt update && sudo apt install htop
 smart-mirror-ir status
 smart-mirror-ir update-mirrors
-smart-mirror-ir install vim htop
 ```
 
-## How the Smart Install Works
+### Systemd Auto-Update (Professional)
 
-When you run `smart-mirror-ir install package1 package2`:
-
-1. Loads the current best mirrors (from cache or quick recheck).
-2. Creates a temporary sources.list / mirrorlist containing **only the top 5 best mirrors** for your distro (sorted by speed).
-3. Runs the native package manager (`apt` or `pacman`) with this temporary config.
-4. If the install succeeds → great!
-5. If any mirror fails or package not found on first, it automatically has the next mirrors as fallback because multiple sources are listed.
-6. If all fail (very rare) → shows friendly error: "Ready brother, all mirrors failed for this package. Check your internet or try VPN."
-
-## Mirror Validation (Professional)
-
-Every mirror is tested with:
-- HEAD request to key files (InRelease for apt, core.db for pacman)
-- If valid → download the file and measure:
-  - Connection time
-  - Total download time
-  - Throughput (KB/s)
-- Score = weighted (low latency + high speed)
-- Invalid or timeout mirrors are discarded.
-
-Only **real working mirrors** are used. No fake links.
-
-## Adding New Mirrors or Distros
-
-Edit `smart_mirror_ir/data/mirrors_ir.json` and `mirrors_cn.json`.
-Each entry:
-```json
-{
-  "name": "ArvanCloud",
-  "base_url": "http://mirror.arvancloud.ir",
-  "https": true,
-  "notes": "Excellent for most distros"
-}
-```
-Then implement validation logic in `validators.py` if new distro type.
-
-## Project Structure
-
-```
-smart-mirror-ir/
-├── README.md
-├── install.sh
-├── LICENSE
-├── pyproject.toml
-├── smart_mirror_ir/
-│   ├── __init__.py
-│   ├── cli.py
-│   ├── core.py
-│   ├── detector.py
-│   ├── mirror_manager.py
-│   ├── validators.py
-│   ├── config.py
-│   ├── utils.py
-│   └── data/
-│       ├── mirrors_ir.json
-│       └── mirrors_cn.json
-└── requirements.txt
+```bash
+sudo cp systemd/smart-mirror-ir.timer /etc/systemd/system/
+sudo cp systemd/smart-mirror-ir.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now smart-mirror-ir.timer
 ```
 
-## Roadmap / Future Features
+## فارسی (پرشین)
 
-- Full support for Fedora/dnf, openSUSE/zypper, Alpine/apk
-- Systemd timer for automatic daily mirror refresh
-- GUI (optional)
-- Per-user vs system-wide config
-- Integration with Flatpak/Snap/AppImage mirrors if needed
-- Persian language interface option
+**اسمارت میرور ای آر** یک ابزار حرفه‌ای و کامل برای مدیریت هوشمند میرورهای پکیج در ایران و چین است.
 
-## Contributing
+### ویژگی‌ها
+- بنچمارک هوشمند و موازی
+- پیکربندی خودکار منابع apt/pacman
+- نصب تمیز با pipx
+- پشتیبانی از systemd timer
+- بکاپ خودکار قبل از هر تغییر
 
-Pull requests welcome! Especially for new mirror lists and distro support.
+### شروع سریع
+```bash
+git clone https://github.com/PyHPDev/smart-mirror-ir.git
+cd smart-mirror-ir
+sudo bash install.sh
+```
 
-## License
+بعد از نصب، دستورات معمولی کار می‌کنند:
+```bash
+sudo apt update && sudo apt install htop
+smart-mirror-ir status
+```
 
-MIT License. Free for personal and commercial use in Iran, China, and everywhere.
+## 中文 (Chinese)
 
-**Made with ❤️ for the Iranian and Chinese Linux community.**
+**Smart Mirror IR** 是一个专业级别的工具，用于伊朗和中国等限制网络环境下自动选择最快、最可靠的软件包镜像。
 
-If this tool helps you, please star the repo and share with friends!
+### 主要特性
+- 智能化镜像测速与验证
+- 自动配置 apt/pacman 源
+- 支持 pipx 清洁安装
+- 支持 systemd 定时器自动更新
+
+### 快速开始
+```bash
+git clone https://github.com/PyHPDev/smart-mirror-ir.git
+cd smart-mirror-ir
+sudo bash install.sh
+```
+
+---
+
+**Made with care for the Iranian and Chinese Linux communities.**

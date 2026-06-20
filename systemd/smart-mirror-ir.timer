@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Smart Mirror IR mirror update daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

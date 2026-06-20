@@ -1,0 +1,11 @@
+[Unit]
+Description=Smart Mirror IR - Update mirror status
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/smart-mirror-ir update-mirrors
+User=root
+
+[Install]
+WantedBy=multi-user.target
