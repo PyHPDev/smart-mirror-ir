@@ -3,11 +3,20 @@
     "name": "MobinHost",
     "base_url": "http://mirror.mobinhost.com",
     "https_available": false,
-    "priority": 95,
+    "priority": 96,
     "debian_path": "/debian/",
     "ubuntu_path": "/ubuntu/",
     "arch_path": "/archlinux/",
-    "notes": "Excellent Tehran DC, actively synced for Debian, Ubuntu, Arch. Highly recommended."
+    "notes": "Top-tier Tehran DC with excellent sync for Debian, Ubuntu, Arch, Alpine. Highly recommended."
+  },
+  {
+    "name": "Runflare",
+    "base_url": "http://mirror-linux.runflare.com",
+    "https_available": false,
+    "priority": 94,
+    "debian_path": "/debian/",
+    "ubuntu_path": "/ubuntu/",
+    "notes": "Runflare Linux mirror - good for Debian and Ubuntu. Added per user request."
   },
   {
     "name": "IranServer",
@@ -16,34 +25,43 @@
     "priority": 92,
     "debian_path": "/debian/",
     "ubuntu_path": "/ubuntu/",
-    "notes": "Good commercial mirror with full Debian support (confirmed /debian/ structure)."
+    "notes": "Reliable commercial mirror with full Debian and Ubuntu support."
   },
   {
     "name": "ArvanCloud",
     "base_url": "http://mirror.arvancloud.ir",
     "https_available": true,
-    "priority": 90,
+    "priority": 91,
     "debian_path": "/debian/",
     "ubuntu_path": "/ubuntu/",
     "arch_path": "/archlinux/",
-    "notes": "High-speed CDN, supports Debian, Ubuntu, Arch and more."
+    "notes": "High-speed ArvanCloud CDN. Excellent for Debian, Ubuntu, Arch and many others."
   },
   {
     "name": "Shatel",
     "base_url": "https://mirror.shatel.ir",
     "https_available": true,
-    "priority": 85,
+    "priority": 86,
     "debian_path": "/debian/",
     "ubuntu_path": "/ubuntu/",
-    "notes": "Popular Iranian ISP mirror. Good for Debian and Ubuntu."
+    "notes": "Popular ISP mirror. Strong for Debian and Ubuntu."
   },
   {
-    "name": "IUT (Isfahan University)",
+    "name": "IUT (Isfahan University of Technology)",
     "base_url": "http://repo.iut.ac.ir",
     "https_available": false,
-    "priority": 80,
+    "priority": 82,
     "debian_path": "/repo/debian/",
+    "ubuntu_path": "/repo/ubuntu/",
     "arch_path": "/repo/archlinux/",
-    "notes": "University mirror. Paths may vary (uses /repo/ prefix for some distros). Will be validated automatically."
+    "notes": "Comprehensive university mirror. Supports many distros with /repo/ prefix."
+  },
+  {
+    "name": "Rasa Negar",
+    "base_url": "http://mirror.rasanegar.com",
+    "https_available": true,
+    "priority": 75,
+    "arch_path": "/archlinux/",
+    "notes": "Additional Arch-focused mirror."
   }
 ]
