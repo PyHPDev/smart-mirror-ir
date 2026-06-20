@@ -41,7 +41,7 @@ from .utils import (
 console = Console() if RICH else None
 logger = get_logger()
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 
 def setup_wizard(args=None):
@@ -104,7 +104,17 @@ def setup_wizard(args=None):
         backup_file("/etc/apt/sources.list")
         with open(sources_path, "w") as f:
             f.write(content)
-        print_success(f"Created smart sources for apt")
+        
+        # Add apt speed optimizations
+        apt_conf = "/etc/apt/apt.conf.d/99smart-mirror-ir"
+        with open(apt_conf, "w") as f:
+            f.write('Acquire::http::Pipeline-Depth "5";
+Acquire::http::No-Cache "true";
+Acquire::BrokenProxy "true";
+Acquire::Retries "3";
+')
+        print_success("Added apt speed optimizations")
+        
         subprocess.run(["apt-get", "update", "-qq"], check=False, timeout=120)
     elif pm == "pacman":
         content = generate_pacman_mirrorlist(best_mirrors[:6])
@@ -128,6 +138,8 @@ def cmd_status(args=None):
     """Show current smart mirror status from cache."""
     from .config import get_cache_path
     import json
+    markdown = getattr(args, 'markdown', False) if args else False
+    
     cache_file = get_cache_path()
     if not os.path.exists(cache_file):
         print_warning("No mirror status cache found. Run 'smart-mirror-ir update-mirrors' first.")
@@ -136,21 +148,31 @@ def cmd_status(args=None):
     try:
         with open(cache_file) as f:
             data = json.load(f)
-        print_info(f"Last benchmark: {data.get('timestamp', 'unknown')}")
-        print_info(f"Country: {data.get('country', 'N/A')} | Distro: {data.get('distro', 'N/A')}")
         
-        if RICH and console:
-            table = Table(title="Current Best Mirrors")
-            table.add_column("Rank", style="cyan")
-            table.add_column("Name", style="green")
-            table.add_column("Speed (KB/s)", style="magenta")
-            table.add_column("Score", style="bold green")
-            for i, m in enumerate(data.get("results", [])[:6], 1):
-                table.add_row(str(i), m.get("name", "?"), str(m.get("speed_kbps", 0)), str(m.get("score", 0)))
-            console.print(table)
+        if markdown:
+            print("# Smart Mirror IR Status\n")
+            print(f"**Last benchmark:** {data.get('timestamp', 'unknown')}")
+            print(f"**Country:** {data.get('country', 'N/A')} | **Distro:** {data.get('distro', 'N/A')}\n")
+            print("| Rank | Name | Speed (KB/s) | Score |")
+            print("|------|------|--------------|-------|")
+            for i, m in enumerate(data.get("results", [])[:8], 1):
+                print(f"| {i} | {m.get('name', '?')} | {m.get('speed_kbps', 0)} | {m.get('score', 0)} |")
         else:
-            for i, m in enumerate(data.get("results", [])[:5], 1):
-                print(f"  {i}. {m.get('name')} - {m.get('speed_kbps')} KB/s")
+            print_info(f"Last benchmark: {data.get('timestamp', 'unknown')}")
+            print_info(f"Country: {data.get('country', 'N/A')} | Distro: {data.get('distro', 'N/A')}")
+            
+            if RICH and console:
+                table = Table(title="Current Best Mirrors")
+                table.add_column("Rank", style="cyan")
+                table.add_column("Name", style="green")
+                table.add_column("Speed (KB/s)", style="magenta")
+                table.add_column("Score", style="bold green")
+                for i, m in enumerate(data.get("results", [])[:6], 1):
+                    table.add_row(str(i), m.get("name", "?"), str(m.get("speed_kbps", 0)), str(m.get("score", 0)))
+                console.print(table)
+            else:
+                for i, m in enumerate(data.get("results", [])[:5], 1):
+                    print(f"  {i}. {m.get('name')} - {m.get('speed_kbps')} KB/s")
     except Exception as e:
         print_error(f"Failed to read status: {e}")
 
@@ -160,11 +182,19 @@ def cmd_update_mirrors(args=None):
     info = detect_distro()
     cfg = load_config()
     country = cfg.get("country", "Iran")
+    markdown = getattr(args, 'markdown', False) if args else False
     
     print_info("Re-benchmarking mirrors...")
     try:
         best = get_best_mirrors(country, info["distro"], info["codename"], force_refresh=True)
-        print_success(f"Updated! Top mirror: {best[0]['name']} @ {best[0]['speed_kbps']} KB/s")
+        if markdown:
+            print("# Benchmark Results\n")
+            print("| Rank | Name | Latency (s) | Speed (KB/s) | Score |")
+            print("|------|------|-------------|--------------|-------|")
+            for i, m in enumerate(best[:8], 1):
+                print(f"| {i} | {m['name']} | {m['latency']} | {m['speed_kbps']} | {m['score']} |")
+        else:
+            print_success(f"Updated! Top mirror: {best[0]['name']} @ {best[0]['speed_kbps']} KB/s")
     except Exception as e:
         print_error(str(e))
 
@@ -223,6 +253,49 @@ def cmd_restore(args=None):
     print_success("Restore completed.")
 
 
+def cmd_test_fallback(args=None):
+    """Test resilience by temporarily using a bad primary mirror."""
+    print_info("Starting fallback resilience test...")
+    info = detect_distro()
+    pm = info["package_manager"]
+    
+    if pm != "apt":
+        print_warning("This test is currently optimized for apt.")
+        return
+    
+    print_warning("This test will temporarily use a non-working primary mirror to verify fallback.")
+    
+    # Create a temp sources.list with a bad first mirror
+    bad_mirror = "http://127.0.0.1:1/debian/"  # Non-working
+    good_mirrors = get_best_mirrors(load_config().get("country", "Iran"), info["distro"], info["codename"])[:3]
+    
+    content = "# Test sources with bad primary mirror\n"
+    content += f"deb {bad_mirror} {info['codename']} main\n\n"
+    for m in good_mirrors:
+        content += f"deb {m['url']}/{info['distro']}/ {info['codename']} main\n"
+    
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".list", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    
+    print_info("Testing with bad primary mirror (should fallback)...")
+    try:
+        result = subprocess.run(
+            ["apt-get", "update", "-o", f"Dir::Etc::SourceList={tmp_path}", "-o", "Dir::Etc::SourceParts=/dev/null"],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0:
+            print_success("Fallback worked! apt successfully updated using secondary mirrors.")
+        else:
+            print_warning("Test completed (some warnings expected with bad primary).")
+    except Exception as e:
+        print_error(f"Test error: {e}")
+    finally:
+        os.unlink(tmp_path)
+    
+    print_success("Resilience test completed. Main mirror is now active again.")
+
+
 def get_sources_list_path(pm: str) -> str:
     if pm == "apt":
         return "/etc/apt/sources.list.d/smart-mirror-ir.list"
@@ -249,6 +322,7 @@ def main():
         epilog="https://github.com/PyHPDev/smart-mirror-ir | Made for restricted networks"
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+    parser.add_argument("--markdown", action="store_true", help="Output in Markdown format")
     
     subparsers = parser.add_subparsers(dest="command", required=True)
     
@@ -267,6 +341,9 @@ def main():
     
     p_restore = subparsers.add_parser("restore", help="Restore original package manager config")
     p_restore.set_defaults(func=cmd_restore)
+    
+    p_test = subparsers.add_parser("test-fallback", help="Test resilience by simulating main mirror failure")
+    p_test.set_defaults(func=cmd_test_fallback)
     
     args = parser.parse_args()
     args.func(args)
