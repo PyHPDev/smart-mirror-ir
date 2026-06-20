@@ -1,0 +1,51 @@
+[
+  {
+    "name": "Tsinghua TUNA",
+    "base_url": "https://mirrors.tuna.tsinghua.edu.cn",
+    "https_available": true,
+    "priority": 98,
+    "notes": "One of the fastest and most reliable in China"
+  },
+  {
+    "name": "USTC",
+    "base_url": "https://mirrors.ustc.edu.cn",
+    "https_available": true,
+    "priority": 96,
+    "notes": "University of Science and Technology of China - excellent"
+  },
+  {
+    "name": "Aliyun",
+    "base_url": "https://mirrors.aliyun.com",
+    "https_available": true,
+    "priority": 94,
+    "notes": "Alibaba Cloud official mirror - very stable"
+  },
+  {
+    "name": "SJTUG SJTU",
+    "base_url": "https://mirrors.sjtug.sjtu.edu.cn",
+    "https_available": true,
+    "priority": 92,
+    "notes": "Shanghai Jiao Tong University"
+  },
+  {
+    "name": "BFSU",
+    "base_url": "https://mirrors.bfsu.edu.cn",
+    "https_available": true,
+    "priority": 90,
+    "notes": "Beijing Foreign Studies University mirror"
+  },
+  {
+    "name": "163",
+    "base_url": "https://mirrors.163.com",
+    "https_available": true,
+    "priority": 85,
+    "notes": "NetEase mirror"
+  },
+  {
+    "name": "SDU",
+    "base_url": "https://mirrors.sdu.edu.cn",
+    "https_available": true,
+    "priority": 80,
+    "notes": "Shandong University"
+  }
+]
