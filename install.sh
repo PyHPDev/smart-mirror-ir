@@ -33,34 +33,58 @@ log "Starting Smart Mirror IR installation..."
 
 echo ""
 
-# Safe banner using heredoc to avoid backtick command substitution issues
+# Safe banner using heredoc
 cat << 'BANNER'
   _____                      _    __  __ _                     _____ _____
  / ____|                    | |  |  \/  (_)                   |_   _|  __ \
 | (___  _ __ ___   __ _ _ __| |_ | \  / |_ _ __ _ __ ___  _ __  | | | |__) |
  \___ \| '_ ` _ \ / _` | '__| __|| |\/| | | '__| '__/ _ \| '__| | | |  _  /
  ____) | | | | | | (_| | |  | |_ | |  | | | |  | | | (_) | |    _| |_| | \ \
-|_____/|_| |_| |_|\__,_|_|   \__||_|  |_|_|_|  |_|  \___/|_|   |_____|_|  \_\
+|_____/|_| |_| |_|[0m__,_|_|   \__||_|  |_|_|_|  |_|  \___/|_|   |_____|_|  \_\
 BANNER
 
 echo ""
 
-# Check Python3
-if ! command -v python3 &> /dev/null; then
-    log "Python3 not found. Installing..."
+# ============================================
+# Python + venv detection and installation
+# ============================================
+
+install_python_venv() {
     if command -v apt-get &> /dev/null; then
-        apt-get update -qq
-        apt-get install -y python3 python3-pip python3-venv curl
+        log "Updating package list..."
+        apt-get update -qq || true
+        log "Installing python3, pip and venv packages..."
+        apt-get install -y python3 python3-pip python3-venv curl 2>/dev/null || true
+        
+        # Try to install version-specific venv (important for Python 3.12/3.13+)
+        PYVER=$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "")
+        if [ -n "$PYVER" ]; then
+            log "Trying to install python${PYVER}-venv (for Python $PYVER)..."
+            apt-get install -y "python${PYVER}-venv" 2>/dev/null || true
+        fi
     elif command -v dnf &> /dev/null; then
-        dnf install -y python3 python3-pip python3-virtualenv curl
+        dnf install -y python3 python3-pip python3-virtualenv curl 2>/dev/null || true
     elif command -v pacman &> /dev/null; then
-        pacman -Sy --noconfirm python python-pip curl
-    else
-        error "Unsupported distro for automatic Python install. Please install Python 3.8+ manually."
-        exit 1
+        pacman -Sy --noconfirm python python-pip 2>/dev/null || true
     fi
-    success "Python3 installed."
+}
+
+# Always ensure venv is available (even if python3 already exists)
+if ! python3 -c "import venv" &> /dev/null 2>&1; then
+    log "venv module not available. Installing required packages..."
+    install_python_venv
 fi
+
+# Final check
+if ! python3 -c "import venv" &> /dev/null 2>&1; then
+    error "Could not enable venv support."
+    if command -v apt-get &> /dev/null; then
+        error "On Debian/Ubuntu/WSL try manually: sudo apt install python3-venv python3.13-venv"
+    fi
+    exit 1
+fi
+
+log "Python and venv are ready."
 
 PYTHON_VERSION=$(python3 -c 'import sys; print("%s.%s" % sys.version_info[:2])')
 log "Detected Python $PYTHON_VERSION"
@@ -81,7 +105,14 @@ mkdir -p "$INSTALL_DIR"
 if [ -d "$VENV_DIR" ]; then
     rm -rf "$VENV_DIR"
 fi
-python3 -m venv "$VENV_DIR"
+
+python3 -m venv "$VENV_DIR" || {
+    error "Failed to create virtual environment."
+    if command -v apt-get &> /dev/null; then
+        error "Try manually: sudo apt install python3-venv python3.13-venv"
+    fi
+    exit 1
+}
 
 # Activate venv
 source "$VENV_DIR/bin/activate"
