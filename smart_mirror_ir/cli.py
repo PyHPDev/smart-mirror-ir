@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import os
+import shutil
 from typing import List
 
 try:
